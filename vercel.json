@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/webhook/discord",
+      "dest": "/api/discord"
+    },
+    {
+      "src": "/health",
+      "dest": "/api/health"
+    }
+  ]
+}

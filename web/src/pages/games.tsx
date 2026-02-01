@@ -9,6 +9,10 @@ export default function GamesPage() {
   const [domains, setDomains] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 50
+
   // Filters
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedDomain, setSelectedDomain] = useState('')
@@ -48,6 +52,28 @@ export default function GamesPage() {
     const debounce = setTimeout(loadGames, 300)
     return () => clearTimeout(debounce)
   }, [searchTerm, selectedDomain, minPlatforms])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, selectedDomain, minPlatforms])
+
+  const totalPages = Math.max(1, Math.ceil(games.length / pageSize))
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages))
+  }, [totalPages])
+
+  const safePage = Math.min(currentPage, totalPages)
+  const startIndex = (safePage - 1) * pageSize
+  const endIndex = Math.min(startIndex + pageSize, games.length)
+  const pagedGames = games.slice(startIndex, endIndex)
+
+  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
+  const visiblePages = pageNumbers.filter((page) => {
+    if (totalPages <= 7) return true
+    if (page === 1 || page === totalPages) return true
+    return Math.abs(page - safePage) <= 1
+  })
 
   return (
     <Layout>
@@ -181,10 +207,55 @@ export default function GamesPage() {
           transition={{ duration: 0.5, delay: 0.3 }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
         >
-          {games.map((game, index) => (
+          {pagedGames.map((game, index) => (
             <GameCard key={game.id} game={game} index={index} />
           ))}
         </motion.div>
+      )}
+
+      {!loading && games.length > 0 && (
+        <div className="mt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          <p className="text-sm text-gray-500 font-mono">
+            Showing {startIndex + 1}-{endIndex} of {games.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              className="btn-outline-cyber disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2"
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              disabled={safePage === 1}
+            >
+              Prev
+            </button>
+            <div className="flex items-center gap-2">
+              {visiblePages.map((page, index) => {
+                const previousPage = visiblePages[index - 1]
+                const showGap = previousPage && page - previousPage > 1
+                return (
+                  <div key={page} className="flex items-center gap-2">
+                    {showGap && <span className="text-gray-500">…</span>}
+                    <button
+                      className={
+                        page === safePage
+                          ? 'btn-cyber px-4 py-2'
+                          : 'btn-outline-cyber px-4 py-2'
+                      }
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+            <button
+              className="btn-outline-cyber disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2"
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              disabled={safePage === totalPages}
+            >
+              Next
+            </button>
+          </div>
+        </div>
       )}
     </Layout>
   )

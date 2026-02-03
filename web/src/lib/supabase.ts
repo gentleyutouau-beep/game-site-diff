@@ -78,16 +78,15 @@ export async function getGames(filters?: {
   search?: string
   limit?: number
   offset?: number
+  withCount?: boolean
 }) {
+  const selectClause = filters?.domain
+    ? `*, game_sources!inner(domain, url)`
+    : `*, game_sources (domain, url)`
+
   let query = supabase
     .from('games')
-    .select(`
-      *,
-      game_sources (
-        domain,
-        url
-      )
-    `)
+    .select(selectClause, { count: filters?.withCount ? 'exact' : undefined })
     .order('score', { ascending: false })
     .order('first_seen', { ascending: false })
 
@@ -99,23 +98,22 @@ export async function getGames(filters?: {
     query = query.ilike('name', `%${filters.search}%`)
   }
 
-  if (filters?.limit) {
+  if (filters?.domain) {
+    query = query.eq('game_sources.domain', filters.domain)
+  }
+
+  if (filters?.limit && typeof filters.offset === 'number') {
+    query = query.range(filters.offset, filters.offset + filters.limit - 1)
+  } else if (filters?.limit) {
     query = query.limit(filters.limit)
   }
 
-  if (filters?.offset) {
-    query = query.range(filters.offset, filters.offset + (filters.limit || 50) - 1)
-  }
-
-  const { data, error } = await query
+  const { data, error, count } = await query
 
   if (error) throw error
 
-  // 如果需要按域名筛选，在客户端过滤
-  if (filters?.domain && data) {
-    return data.filter(game =>
-      game.game_sources?.some((source: GameSource) => source.domain === filters.domain)
-    )
+  if (filters?.withCount) {
+    return { data: data || [], count: count || 0 }
   }
 
   return data || []

@@ -8,6 +8,7 @@ export default function GamesPage() {
   const [games, setGames] = useState<Game[]>([])
   const [domains, setDomains] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [totalGames, setTotalGames] = useState(0)
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -40,10 +41,17 @@ export default function GamesPage() {
         if (selectedDomain) filters.domain = selectedDomain
         if (minPlatforms) filters.minPlatforms = minPlatforms
 
-        const data = await getGames(filters)
+        const { data, count } = await getGames({
+          ...filters,
+          limit: pageSize,
+          offset: (currentPage - 1) * pageSize,
+          withCount: true
+        })
         setGames(data)
+        setTotalGames(count)
       } catch (error) {
         console.error('Error loading games:', error)
+        setTotalGames(0)
       } finally {
         setLoading(false)
       }
@@ -51,13 +59,13 @@ export default function GamesPage() {
 
     const debounce = setTimeout(loadGames, 300)
     return () => clearTimeout(debounce)
-  }, [searchTerm, selectedDomain, minPlatforms])
+  }, [searchTerm, selectedDomain, minPlatforms, currentPage])
 
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, selectedDomain, minPlatforms])
 
-  const totalPages = Math.max(1, Math.ceil(games.length / pageSize))
+  const totalPages = Math.max(1, Math.ceil(totalGames / pageSize))
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages))
@@ -65,8 +73,8 @@ export default function GamesPage() {
 
   const safePage = Math.min(currentPage, totalPages)
   const startIndex = (safePage - 1) * pageSize
-  const endIndex = Math.min(startIndex + pageSize, games.length)
-  const pagedGames = games.slice(startIndex, endIndex)
+  const endIndex = Math.min(startIndex + pageSize, totalGames)
+  const pagedGames = games
 
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
   const visiblePages = pageNumbers.filter((page) => {
@@ -89,7 +97,7 @@ export default function GamesPage() {
           <span className="text-white">DATABASE</span>
         </h1>
         <p className="text-gray-400 font-mono text-lg">
-          {games.length.toLocaleString()} GAMES TRACKED ACROSS MULTIPLE PLATFORMS
+          {totalGames.toLocaleString()} GAMES TRACKED ACROSS MULTIPLE PLATFORMS
         </p>
       </motion.div>
 
@@ -193,7 +201,7 @@ export default function GamesPage() {
             <p className="text-gray-400 font-mono">LOADING GAMES...</p>
           </div>
         </div>
-      ) : games.length === 0 ? (
+      ) : totalGames === 0 ? (
         <div className="card-cyber p-12 text-center">
           <p className="text-gray-500 text-lg font-mono">NO GAMES FOUND</p>
           <p className="text-gray-600 text-sm mt-2">
@@ -213,10 +221,10 @@ export default function GamesPage() {
         </motion.div>
       )}
 
-      {!loading && games.length > 0 && (
+      {!loading && totalGames > 0 && (
         <div className="mt-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-gray-500 font-mono">
-            Showing {startIndex + 1}-{endIndex} of {games.length}
+            Showing {startIndex + 1}-{endIndex} of {totalGames}
           </p>
           <div className="flex items-center gap-2">
             <button

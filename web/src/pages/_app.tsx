@@ -9,7 +9,8 @@ export default function App({ Component, pageProps }: AppProps) {
         <title>GameMonitor - Cross-Platform Game Tracker</title>
         <meta name="description" content="Track games across multiple platforms" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="alternate icon" href="/favicon.ico" />
       </Head>
       <Component {...pageProps} />
     </>

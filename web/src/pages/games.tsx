@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '@/components/Layout'
 import GameCard from '@/components/GameCard'
-import { getGames, getFeeds, Game, Feed } from '@/lib/supabase'
+import { getGames, getFeeds, Game, Feed, GameSort } from '@/lib/supabase'
 import { motion } from 'framer-motion'
 
 export default function GamesPage() {
@@ -18,6 +18,7 @@ export default function GamesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedDomain, setSelectedDomain] = useState('')
   const [minPlatforms, setMinPlatforms] = useState<number | undefined>()
+  const [sort, setSort] = useState<GameSort>('newest')
 
   useEffect(() => {
     async function loadDomains() {
@@ -43,6 +44,7 @@ export default function GamesPage() {
 
         const { data, count } = await getGames({
           ...filters,
+          sort,
           limit: pageSize,
           offset: (currentPage - 1) * pageSize,
           withCount: true
@@ -59,11 +61,11 @@ export default function GamesPage() {
 
     const debounce = setTimeout(loadGames, 300)
     return () => clearTimeout(debounce)
-  }, [searchTerm, selectedDomain, minPlatforms, currentPage])
+  }, [searchTerm, selectedDomain, minPlatforms, sort, currentPage])
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, selectedDomain, minPlatforms])
+  }, [searchTerm, selectedDomain, minPlatforms, sort])
 
   const totalPages = Math.max(1, Math.ceil(totalGames / pageSize))
 
@@ -108,6 +110,43 @@ export default function GamesPage() {
         transition={{ duration: 0.5, delay: 0.2 }}
         className="card-cyber p-6 mb-8"
       >
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div>
+            <div className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+              Sort
+            </div>
+            <div className="text-xs text-gray-600 font-mono">
+              Default: NEWEST (latest crawled)
+            </div>
+          </div>
+          <div className="inline-flex rounded-md overflow-hidden border border-gray-800/50">
+            <button
+              type="button"
+              onClick={() => setSort('newest')}
+              className={
+                sort === 'newest'
+                  ? 'btn-cyber px-4 py-2 rounded-none'
+                  : 'btn-outline-cyber px-4 py-2 rounded-none'
+              }
+              aria-pressed={sort === 'newest'}
+            >
+              NEWEST
+            </button>
+            <button
+              type="button"
+              onClick={() => setSort('top')}
+              className={
+                sort === 'top'
+                  ? 'btn-cyber px-4 py-2 rounded-none'
+                  : 'btn-outline-cyber px-4 py-2 rounded-none'
+              }
+              aria-pressed={sort === 'top'}
+            >
+              TOP
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Search */}
           <div>

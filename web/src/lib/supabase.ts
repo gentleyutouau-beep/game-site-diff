@@ -39,6 +39,18 @@ export interface Stats {
   highScoreGames: number
 }
 
+export type GameSort = 'newest' | 'top'
+
+export type GetGamesFilters = {
+  minPlatforms?: number
+  domain?: string
+  search?: string
+  limit?: number
+  offset?: number
+  withCount?: boolean
+  sort?: GameSort
+}
+
 // 获取统计数据
 export async function getStats(): Promise<Stats> {
   // 总游戏数
@@ -72,23 +84,30 @@ export async function getStats(): Promise<Stats> {
 }
 
 // 获取游戏列表
-export async function getGames(filters?: {
-  minPlatforms?: number
-  domain?: string
-  search?: string
-  limit?: number
-  offset?: number
-  withCount?: boolean
-}) {
+export async function getGames(filters: GetGamesFilters & { withCount: true }): Promise<{ data: Game[]; count: number }>
+export async function getGames(filters?: GetGamesFilters & { withCount?: false }): Promise<Game[]>
+export async function getGames(filters?: GetGamesFilters) {
   const selectClause = filters?.domain
     ? `*, game_sources!inner(domain, url)`
     : `*, game_sources (domain, url)`
 
+  const sort: GameSort = filters?.sort ?? 'newest'
+
   let query = supabase
     .from('games')
     .select(selectClause, { count: filters?.withCount ? 'exact' : undefined })
-    .order('score', { ascending: false })
-    .order('first_seen', { ascending: false })
+
+  // Default: newest (latest crawled / first seen)
+  // Secondary sort breaks ties deterministically.
+  if (sort === 'top') {
+    query = query
+      .order('score', { ascending: false })
+      .order('first_seen', { ascending: false })
+  } else {
+    query = query
+      .order('first_seen', { ascending: false })
+      .order('score', { ascending: false })
+  }
 
   if (filters?.minPlatforms) {
     query = query.gte('platform_count', filters.minPlatforms)
@@ -113,10 +132,10 @@ export async function getGames(filters?: {
   if (error) throw error
 
   if (filters?.withCount) {
-    return { data: data || [], count: count || 0 }
+    return { data: (data as Game[]) || [], count: count || 0 }
   }
 
-  return data || []
+  return (data as Game[]) || []
 }
 
 // 获取所有 feeds

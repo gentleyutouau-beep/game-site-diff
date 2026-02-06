@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Layout from '@/components/Layout'
 import StatCard from '@/components/StatCard'
 import GameCard from '@/components/GameCard'
-import { getStats, getGames, Game, Stats } from '@/lib/supabase'
+import { getStats, getGames, Game, GameSort, Stats } from '@/lib/supabase'
 import { motion } from 'framer-motion'
 
 export default function Dashboard() {
@@ -12,26 +12,42 @@ export default function Dashboard() {
     crossPlatformGames: 0,
     highScoreGames: 0,
   })
-  const [topGames, setTopGames] = useState<Game[]>([])
+  const [games, setGames] = useState<Game[]>([])
   const [loading, setLoading] = useState(true)
+  const [gamesLoading, setGamesLoading] = useState(false)
+  const [sort, setSort] = useState<GameSort>('newest')
+  const firstLoadRef = useRef(true)
 
   useEffect(() => {
     async function loadData() {
+      const isFirst = firstLoadRef.current
+      if (isFirst) setLoading(true)
+      else setGamesLoading(true)
+
       try {
-        const [statsData, gamesData] = await Promise.all([
-          getStats(),
-          getGames({ minPlatforms: 2, limit: 6 }),
-        ])
-        setStats(statsData)
-        setTopGames(gamesData)
+        const gamesPromise = getGames({ minPlatforms: 2, limit: 6, sort })
+
+        if (isFirst) {
+          const [statsData, gamesData] = await Promise.all([getStats(), gamesPromise])
+          setStats(statsData)
+          setGames(gamesData)
+        } else {
+          const gamesData = await gamesPromise
+          setGames(gamesData)
+        }
       } catch (error) {
         console.error('Error loading data:', error)
       } finally {
-        setLoading(false)
+        if (isFirst) {
+          firstLoadRef.current = false
+          setLoading(false)
+        } else {
+          setGamesLoading(false)
+        }
       }
     }
     loadData()
-  }, [])
+  }, [sort])
 
   if (loading) {
     return (
@@ -104,20 +120,53 @@ export default function Dashboard() {
       >
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-3xl font-bold">
-            <span className="text-neon-cyan">TOP</span>{' '}
+            <span className="text-neon-cyan">{sort === 'newest' ? 'NEWEST' : 'TOP'}</span>{' '}
             <span className="text-white">CROSS-PLATFORM GAMES</span>
           </h2>
-          <a
-            href="/games"
-            className="px-6 py-3 rounded-md font-semibold tracking-wider uppercase text-sm
-                     border-2 border-neon-cyan text-neon-cyan
-                     hover:bg-neon-cyan hover:text-cyber-dark transition-all duration-300"
-          >
-            View All →
-          </a>
+          <div className="flex items-center gap-3">
+            <div className="inline-flex rounded-md overflow-hidden border border-gray-800/50">
+              <button
+                type="button"
+                onClick={() => setSort('newest')}
+                className={
+                  sort === 'newest'
+                    ? 'btn-cyber px-4 py-2 rounded-none'
+                    : 'btn-outline-cyber px-4 py-2 rounded-none'
+                }
+                aria-pressed={sort === 'newest'}
+              >
+                NEWEST
+              </button>
+              <button
+                type="button"
+                onClick={() => setSort('top')}
+                className={
+                  sort === 'top'
+                    ? 'btn-cyber px-4 py-2 rounded-none'
+                    : 'btn-outline-cyber px-4 py-2 rounded-none'
+                }
+                aria-pressed={sort === 'top'}
+              >
+                TOP
+              </button>
+            </div>
+            <a
+              href="/games"
+              className="px-6 py-3 rounded-md font-semibold tracking-wider uppercase text-sm
+                       border-2 border-neon-cyan text-neon-cyan
+                       hover:bg-neon-cyan hover:text-cyber-dark transition-all duration-300"
+            >
+              View All →
+            </a>
+          </div>
         </div>
 
-        {topGames.length === 0 ? (
+        {gamesLoading ? (
+          <div className="card-cyber p-12 text-center">
+            <div className="w-12 h-12 border-4 border-neon-cyan border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-400 font-mono">LOADING GAMES...</p>
+          </div>
+        ) : games.length === 0 ? (
           <div className="card-cyber p-12 text-center">
             <p className="text-gray-500 text-lg font-mono">
               NO CROSS-PLATFORM GAMES FOUND
@@ -128,7 +177,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {topGames.map((game, index) => (
+            {games.map((game, index) => (
               <GameCard key={game.id} game={game} index={index} />
             ))}
           </div>
